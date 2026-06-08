@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# OpenPup runtime state
+.openpup/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
