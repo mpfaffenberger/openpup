@@ -333,6 +333,36 @@ class SessionStore:
             logger.debug("recent_sessions failed", exc_info=True)
             return []
 
+    def recent_for_source(self, source: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """The most recent messages for a conversation ``source`` (a
+        ``platform:channel`` address), across its day-bucketed sessions, in
+        chronological order (oldest first).
+
+        Used to rehydrate a conversation's recent turns after a restart, when
+        the agent's in-memory history is empty -- so the pup picks the thread
+        back up instead of relying on summarized memory alone.
+        """
+        if not source:
+            return []
+        try:
+            with self._lock:
+                rows = self._conn.execute(
+                    """
+                    SELECT m.role, m.content, m.ts
+                    FROM messages m JOIN sessions s ON s.id = m.session_id
+                    WHERE s.source = ?
+                    ORDER BY m.ts DESC, m.id DESC LIMIT ?
+                    """,
+                    (source, limit),
+                ).fetchall()
+            return [
+                {"role": r["role"], "content": r["content"], "ts": r["ts"]}
+                for r in reversed(rows)
+            ]
+        except Exception:
+            logger.debug("recent_for_source failed for %s", source, exc_info=True)
+            return []
+
 
 # --- process-wide singleton ------------------------------------------------
 _store: Optional[SessionStore] = None

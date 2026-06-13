@@ -14,7 +14,7 @@ import asyncio
 import logging
 from typing import List, Optional
 
-from openpup import access, memory, transcripts
+from openpup import access, memory, sessions, transcripts
 from openpup.access import AccessControl, default_access_path
 from openpup.directory import get_directory
 from openpup.agent_host import AgentHost
@@ -110,9 +110,11 @@ class OpenPup:
         # Transcript: one session per conversation peer, date-bucketed as
         # "platform:channel:YYYYMMDD" so sessions don't grow unboundedly.
         session_id = transcripts.conversation_session_id(envelope.address)
-        transcripts.record_turn(session_id, envelope.address, "user", envelope.text)
-
+        # Build the prompt BEFORE recording this turn: the context prefix may
+        # rehydrate recent transcript turns (after a restart), and we don't want
+        # it echoing back the very message we're about to answer.
         prompt = self._context_prefix(envelope, role) + envelope.text
+        transcripts.record_turn(session_id, envelope.address, "user", envelope.text)
         # Show a "typing..." indicator (where the platform supports it) for the
         # whole run, so slow turns -- including transient LLM-streaming retries
         # -- look like the pup thinking, not a dead bot.
@@ -211,7 +213,32 @@ class OpenPup:
                 lines.extend(f"- {f}" for f in facts)
         except Exception:
             logger.debug("contact recall failed", exc_info=True)
+        # Rehydrate recent verbatim turns -- ONLY when the agent has no live
+        # history for this peer (e.g. right after a restart). In a running
+        # session the live message history already carries the thread, so we
+        # skip this to avoid duplicating it.
+        if not self.host.has_history(envelope.address):
+            lines.extend(self._recent_conversation_lines(envelope.address, who))
         return "\n".join(lines) + "\n\n"
+
+    def _recent_conversation_lines(self, address: str, who: str) -> List[str]:
+        """Recent prior turns for this peer, pulled from the transcript so the
+        pup keeps the thread across restarts (not just summarized memory)."""
+        try:
+            turns = sessions.get_session_store().recent_for_source(address, limit=10)
+        except Exception:
+            logger.debug("history rehydration failed for %s", address, exc_info=True)
+            return []
+        if not turns:
+            return []
+        out = [f"Recent conversation with {who} (oldest first, continue it naturally):"]
+        for turn in turns:
+            speaker = "You" if turn.get("role") == "assistant" else who
+            content = (turn.get("content") or "").strip().replace("\n", " ")
+            if len(content) > 300:
+                content = content[:300] + "…"
+            out.append(f"- {speaker}: {content}")
+        return out
 
     # ---- lifecycle -------------------------------------------------------
     async def start(self) -> None:

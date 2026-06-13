@@ -41,6 +41,9 @@ class StubHost:
         self.prompts.append(prompt)
         return self.reply
 
+    def has_history(self, conversation: str) -> bool:
+        return True  # skip transcript rehydration -- not what these tests cover
+
     def reset_conversation(self, conversation: str) -> None:
         pass
 

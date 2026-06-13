@@ -236,6 +236,14 @@ class AgentHost:
                     continue
                 raise
 
+    def has_history(self, conversation: str) -> bool:
+        """True if we already hold live in-memory turns for this conversation.
+
+        False right after a (re)start -- the cue for the runtime to rehydrate
+        recent turns from the persistent transcript instead.
+        """
+        return bool(self._histories.get(conversation))
+
     def reset_conversation(self, conversation: str) -> None:
         self._histories.pop(conversation, None)
 

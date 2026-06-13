@@ -174,6 +174,11 @@ class StubHost:
         self.prompts.append(prompt)
         return self.reply
 
+    def has_history(self, conversation: str) -> bool:
+        # Pretend live history exists so _context_prefix skips transcript
+        # rehydration -- these tests are about the threat guard, not history.
+        return True
+
     def reset_conversation(self, conversation: str) -> None:
         pass
 
