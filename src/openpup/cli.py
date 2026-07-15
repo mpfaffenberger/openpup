@@ -37,6 +37,7 @@ household_app = typer.Typer(help="Household mode: role-based access and per-user
 voice_app = typer.Typer(help="Voice transcription and synthesis.", no_args_is_help=True)
 calendar_app = typer.Typer(help="Calendar integration (CalDAV / Google).", no_args_is_help=True)
 rag_app = typer.Typer(help="Local-files RAG: index + search a personal vault.", no_args_is_help=True)
+habits_app = typer.Typer(help="Habit / streak tracker.", no_args_is_help=True)
 
 gallery_app = typer.Typer(
     help="Community skill gallery: install and publish skills.", no_args_is_help=True
@@ -52,6 +53,7 @@ app.add_typer(household_app, name="household")
 app.add_typer(voice_app, name="voice")
 app.add_typer(calendar_app, name="calendar")
 app.add_typer(rag_app, name="rag")
+app.add_typer(habits_app, name="habits")
 
 console = Console()
 
@@ -893,6 +895,55 @@ def _iter_files(root: Path):
         if any(p.startswith(".") for p in entry.relative_to(root).parts[:-1]):
             continue
         yield entry
+
+
+@habits_app.command("list")
+def habits_list() -> None:
+    """List tracked habits with current + longest streak."""
+    from openpup.habits import get_store
+
+    habits = get_store().list()
+    if not habits:
+        console.print("[dim]no habits tracked[/dim]")
+        return
+    table = Table(title="Habits")
+    table.add_column("name", style="cyan")
+    table.add_column("days", justify="right")
+    table.add_column("current", justify="right")
+    table.add_column("longest", justify="right")
+    from openpup.habits import _streak
+
+    for h in habits:
+        cur, lng = _streak(h.completions)
+        table.add_row(h.name, str(len(h.completions)), str(cur), str(lng))
+    console.print(table)
+
+
+@habits_app.command("log")
+def habits_log(
+    name: str = typer.Argument(..., help="Habit name."),
+    day: str = typer.Option("", "--day", "-d", help="ISO date (YYYY-MM-DD). Default today."),
+) -> None:
+    """Mark a habit done today (or a specific day)."""
+    from openpup.habits import get_store
+
+    h = get_store().log(name, day=day or None)
+    console.print(f"[green]logged[/green] {name} ({len(h.completions)} total days)")
+
+
+@habits_app.command("streaks")
+def habits_streaks() -> None:
+    """Show current + longest streaks for every habit."""
+    from openpup.habits import _streak, get_store
+
+    table = Table(title="Streaks")
+    table.add_column("habit", style="cyan")
+    table.add_column("current", justify="right")
+    table.add_column("longest", justify="right")
+    for h in get_store().list():
+        cur, lng = _streak(h.completions)
+        table.add_row(h.name, str(cur), str(lng))
+    console.print(table)
 
 
 @group_app.command("show")
