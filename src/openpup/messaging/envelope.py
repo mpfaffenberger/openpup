@@ -36,6 +36,10 @@ class Envelope(BaseModel):
     sender_id: Optional[str] = None
     # Optional reply/thread anchor for platforms that support threads.
     thread_id: Optional[str] = None
+    # Chat type ("dm" or "group"). Default "dm" for backwards compat.
+    chat_type: str = "dm"
+    # User IDs that were @mentioned in the inbound message (best-effort).
+    mentions: List[str] = Field(default_factory=list)
     text: str = ""
     # Free-form attachment descriptors (urls, file paths, mime types).
     attachments: List[Dict[str, Any]] = Field(default_factory=list)

@@ -74,6 +74,21 @@ class OpenPup:
             )
             return
 
+        # Group-chat policy gate: don't reply to groups that don't meet the
+        # platform's group policy (mention_required, keyword, etc.).
+        from openpup.group_policy import get_store, should_reply as _should_reply
+
+        if envelope.chat_type == "group":
+            pol = get_store().get(envelope.platform)
+            gd = _should_reply(envelope, pol)
+            if not gd.allowed:
+                logger.info(
+                    "Skipping group reply at %s: %s",
+                    envelope.address,
+                    gd.reason,
+                )
+                return
+
         # Scope the sender's role to THIS message: when handle_inbound is
         # awaited inside a longer-lived task (heartbeat inbound polling), a
         # leaked role would demote/promote whatever that task does next.

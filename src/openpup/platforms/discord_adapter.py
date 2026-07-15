@@ -59,12 +59,20 @@ class DiscordAdapter(PlatformAdapter):
         if not (is_dm or mentioned):
             return None
         author_id = getattr(message.author, "id", None)
+        # Mentioned user ids (in addition to the bot itself).
+        mentions = []
+        for u in getattr(message, "mentions", []) or []:
+            uid = getattr(u, "id", None)
+            if uid is not None:
+                mentions.append(str(uid))
         return Envelope(
             platform=self.name,
             channel=str(message.channel.id),
             sender=str(message.author),
             sender_id=str(author_id) if author_id is not None else None,
             text=message.content or "",
+            chat_type="dm" if is_dm else "group",
+            mentions=mentions,
         )
 
     async def _handle_message(self, message) -> None:

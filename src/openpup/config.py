@@ -150,6 +150,11 @@ class Settings(BaseSettings):
     )
     quiet_hours: Optional[str] = Field("23-7", alias="OPENPUP_QUIET_HOURS")
     outreach_max_per_day: int = Field(4, alias="OPENPUP_OUTREACH_MAX_PER_DAY")
+    # Briefings: RSS / Atom news digest delivered via the heartbeat.
+    briefing_feeds: str = Field("", alias="OPENPUP_BRIEFING_FEEDS")
+    briefing_interval_hours: int = Field(12, alias="OPENPUP_BRIEFING_INTERVAL_HOURS")
+    # Household mode: serve a small group instead of just the owner.
+    household_mode: bool = Field(False, alias="OPENPUP_HOUSEHOLD_MODE")
     # Curator: skill-shelf maintenance (opt-in via OPENPUP_HEARTBEAT_BEHAVIORS).
     curator_interval_hours: int = Field(168, alias="OPENPUP_CURATOR_INTERVAL_HOURS")
     curator_stale_after_days: int = Field(30, alias="OPENPUP_CURATOR_STALE_AFTER_DAYS")

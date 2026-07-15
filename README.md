@@ -387,6 +387,302 @@ src/openpup/
   tui/
     select.py          # prompt_toolkit arrow-select + input primitives
     env_store.py       # comment-preserving .env editor
+  mcp_server.py        # OPTIONAL: MCP stdio server exposing OpenPup tools
+  backup.py            # OPTIONAL: encrypted backup & restore (Argon2id + AES-GCM)
+  skills_gallery.py    # OPTIONAL: community skill registry install/publish
+  web_dashboard.py     # OPTIONAL: local web dashboard (FastAPI)
+  heartbeat/
+    briefings.py        # OPTIONAL: RSS/Atom digest heartbeat behavior
+  group_policy.py       # PER-PLATFORM: chat_type + mention policy (smart/open/silent)
+  voice.py              # OPTIONAL: voice transcription + TTS (faster-whisper + pyttsx3)
+  calendar_integration.py  # OPTIONAL: CalDAV calendar (iCloud / Fastmail / Nextcloud)
+  rag.py                # OPTIONAL: local-files RAG (SQLite FTS5, with PDF + DOCX extras)
+  household.py          # PER-USER: role-based access + per-user memory
+```
+
+## News briefings
+
+A new opt-in heartbeat behavior (`briefings`) that watches a list of RSS / Atom
+feeds and aggregates new items into a single digest delivered to the owner.
+Useful for "tell me every morning what's new on X" workflows.
+
+```bash
+# .env / settings
+OPENPUP_HEARTBEAT_BEHAVIORS=reflect,outreach,routines,inbound,briefings
+OPENPUP_BRIEFING_FEEDS=https://hnrss.org/frontpage,https://export.arxiv.org/rss/cs.AI
+OPENPUP_BRIEFING_INTERVAL_HOURS=12
+```
+
+What it does:
+- Fetches each configured feed (RSS 2.0 or Atom).
+- Tracks last-seen timestamp per feed in `~/.openpup/briefings_seen.json`.
+- Aggregates items newer than the watermark into a single digest.
+- Delivers to `OPENPUP_OWNER_ADDRESS` (subject to the same send-policy + quiet-hours
+  guards as `outreach`).
+- Throttled to at most one digest per hour regardless of cadence.
+
+Pure stdlib XML parsing (no feedparser dep) so it stays light.
+
+## Skill gallery
+
+A small community registry of skills (`registry/skills.json` in this repo by
+default). One command to install a community skill:
+
+```bash
+# Browse what's available
+openpup skills-gallery list
+openpup skills-gallery search summary
+
+# Drop a skill into ~/.openpup/skills/
+openpup skills-gallery install summarize-url
+
+# Maintainers: package a local skill for the registry
+openpup skills-gallery publish ./my-skill --tag web --tag summary
+```
+
+Override the registry with `OPENPUP_SKILLS_REGISTRY` (URL or local file path).
+Each registry entry pins a `SKILL.md` body (frontmatter + content) for full
+reproducibility — the `commit` SHA, when present, pins to a specific
+revision.
+
+## Encrypted backup & restore
+
+OpenPup's entire mind lives in `~/.openpup/`. Snapshots it to an encrypted
+archive you can restore after a disaster, migration, or new machine. Backups
+use **Argon2id + AES-GCM** with a passphrase-derived key, so the storage
+target (S3, NAS, friend's box) never sees plaintext.
+
+```bash
+uv pip install -e ".[backup]"       # or "[all]"
+
+# Create a snapshot (state dir defaults to ~/.openpup)
+openpup backup create --label before-upgrade
+
+# List what's in the backup target
+openpup backup list
+
+# Restore into a NEW directory (refuses to clobber existing content)
+openpup backup restore 20260215T103000Z-before-upgrade.openpup-backup --to /tmp/pup-restore
+
+# Verify without extracting (decrypts and reads metadata only)
+openpup backup verify 20260215T103000Z-before-upgrade.openpup-backup
+```
+
+Targets are pluggable. Configure via `OPENPUP_BACKUP_TARGET`:
+
+```bash
+# Local dir (default if env unset): ~/.local/share/openpup/backups
+export OPENPUP_BACKUP_TARGET="local:/mnt/nas/openpup-backups"
+
+# S3 / S3-compatible (uses standard AWS env vars or instance creds)
+export OPENPUP_BACKUP_TARGET="s3:my-bucket/openpup-backups"
+```
+
+The passphrase is prompted interactively, or pass `--passphrase` /
+`OPENPUP_BACKUP_PASSPHRASE` for scripts. **Don't lose the passphrase** — the
+key is derived from it; there's no recovery.
+
+File format: `[16-byte salt][12-byte nonce][AES-GCM ciphertext]`. The tar
+inside contains a `VERSION` file with format version, timestamp, hostname,
+and OpenPup version for forensic verification.
+
+## Voice transcription & TTS
+
+Optional `voice` extras (faster-whisper + pyttsx3) let the pup **transcribe
+inbound voice notes** and **reply with synthesized speech** when the
+platform supports audio attachments.
+
+```bash
+uv pip install -e ".[voice]"          # local: faster-whisper + pyttsx3
+# Or: uv pip install -e ".[voice-cloud]"   # hosted APIs (stub for now)
+
+# Inspect what's available
+openpup voice info
+
+# Transcribe an audio file
+openpup voice transcribe recording.ogg --language en
+
+# Synthesize text to a WAV
+openpup voice speak "Good morning Mike" --out morning.wav
+```
+
+Both backends are optional — `openpup.voice.is_available()` tells you whether
+local transcription / TTS is installed. Platforms that don't support audio
+attachments (email, SMS) just fall back to text replies.
+
+## Calendar integration
+
+Native calendar via CalDAV (iCloud, Fastmail, Nextcloud, Radicale) and a stub
+backend for unconfigured setups. Set:
+
+```bash
+export OPENPUP_CALENDAR_URL=https://caldav.icloud.com
+export OPENPUP_CALENDAR_USER=you@icloud.com
+export OPENPUP_CALENDAR_PASSWORD=app-specific-password
+export OPENPUP_CALENDAR_DEFAULT=personal
+```
+
+Then `openpup calendar today` or `openpup calendar week` to read events.
+Tools exposed to the agent (via `openpup_calendar`):
+`list_events`, `find_free_slot`, `create_event`, `reschedule`, `cancel`. PDF
+(PDF / DOCX) require `pip install 'openpup[rag]'` (see below).
+
+## Local-files RAG (index a personal vault)
+
+Index a folder of notes / docs / code and search them with citations. Uses
+SQLite + FTS5 (BM25) for v1 — no model download, no vector store.
+
+```bash
+uv pip install -e ".[rag]"             # adds pypdf + python-docx for PDFs
+
+# Index a folder
+openpup rag index ~/Notes
+openpup rag index ~/code/myproject
+
+# Search
+openpup rag search "postgres upgrade"
+```
+
+Each result is a `file:line-line` citation. Files supported out of the box:
+Markdown, plain text, and common source code. PDF (`.pdf`) and Word
+(`.docx`) via `pypdf` + `python-docx` (both optional). The index is
+incremental and idempotent — re-running `rag index` on unchanged files is a
+no-op.
+
+The store lives at `~/.openpup/rag.sqlite` (BM5 FTS5 table).
+
+## Household mode
+
+When `OPENPUP_HOUSEHOLD_MODE=true`, OpenPup can serve a small group
+(owner + partner/family/friends/team/guest) instead of one owner. Each role
+gets a default capability set:
+
+| Role | Send | Calendar | Browse | Email | Routines | Config |
+|------|------|----------|--------|-------|----------|--------|
+| owner | Y | Y | Y | Y | Y | Y |
+| partner | Y | Y | Y | - | Y | - |
+| family | - | - | Y | - | Y | - |
+| friend | - | - | - | - | - | - |
+| team | - | Y | Y | - | - | - |
+| guest | - | - | - | - | - | - |
+
+```bash
+openpup household on
+openpup household show     # see default policies per role
+openpup household off
+```
+
+State persists to `~/.openpup/group_policies.json`-style config-store; users
+are tagged in the contact directory with their role, and the agent chooses
+tools based on `policy_for(role)`.
+
+## Group-chat etiquette
+
+Per-platform policies control when OpenPup responds in group chats. DMs are
+unaffected; group replies are gated on per-platform policy.
+
+```bash
+# Default policy: bot must be @mentioned (or contain a keyword) in groups.
+openpup group show telegram
+openpup group set telegram --mode smart --require-mention --keyword pup
+openpup group list
+```
+
+Three modes:
+
+| Mode | Behavior |
+|------|----------|
+| `smart` (default) | Reply only when @mentioned (or keyword present) |
+| `open` | Always reply in groups (legacy behavior) |
+| `silent` | Never reply in groups (only DMs get a reply) |
+
+The Telegram + Discord adapters populate `Envelope.chat_type` (from the SDK
+chat type) and `Envelope.mentions` (from text_mention entities / `message.mentions`).
+When `require_mention=true` and the message has no mention / no keyword, the
+heartbeat's `handle_inbound` short-circuits without invoking the agent.
+
+State persists to `~/.openpup/group_policies.json` (separate from access.json
+so changing group policy doesn't risk your owner / allowlist settings).
+
+## Local web dashboard
+
+A read-only browser surface for inspecting your pup without ssh-ing in or
+typing CLI commands. Six tabs cover everything visible about your pup:
+
+| Tab | Shows |
+|-----|-------|
+| **Status** | Name, model, owner, kennel path, enabled platforms, heartbeat cadence |
+| **Memory** | Live kennel search (BM25) — type and hit Enter |
+| **Sessions** | Recently active sessions with source + last-active |
+| **Skills** | All installed skills (incl. archived), category, state |
+| **Routines** | Each scheduled job with last/next fire time |
+| **Heartbeat** | Cadence, behaviors, quiet hours |
+
+```bash
+uv pip install -e ".[dashboard]"   # or "[all]"
+openpup web                          # prints a URL with a random token
+```
+
+The dashboard binds to `127.0.0.1` by default (local-only, no network exposure).
+Auth is via a random per-install token saved to `~/.openpup/dashboard.token`,
+accepted via `?token=...` or `Authorization: Bearer ...`. Override with
+`OPENPUP_DASHBOARD_TOKEN` or `OPENPUP_DASHBOARD_HOST` / `_PORT`. No telemetry,
+no external requests.
+
+For automation, the same data is available as JSON:
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://127.0.0.1:8765/api/status
+curl -H 'Authorization: Bearer <token>' 'http://127.0.0.1:8765/api/memory?q=postgres'
+```
+
+## MCP server
+
+OpenPup can run as an [MCP](https://modelcontextprotocol.io/) (Model Context
+Protocol) server, exposing its tools to MCP-capable clients like **Claude
+Desktop**, **Cursor**, and **Windsurf**. One pup can be reached from chat
+(Telegram/Discord/etc.) *and* from an MCP client, backed by the same kennel,
+sessions, and skills.
+
+```bash
+uv pip install -e ".[mcp]"          # or "[all]"
+openpup mcp                          # runs an MCP stdio server
+```
+
+Add to your MCP client config (e.g. Claude Desktop's
+`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "openpup": {
+      "command": "openpup",
+      "args": ["mcp"],
+      "cwd": "/absolute/path/to/openpup"
+    }
+  }
+}
+```
+
+Exposed tools (11 total):
+
+| Tool | What it does |
+|------|--------------|
+| `memory_recall(query, top_k)` | BM25 search the kennel |
+| `memory_recent(top_k)` | Most recent memories |
+| `memory_store(content, wing?, room?)` | Write a note into the kennel |
+| `session_search(query?, session_id?, around_message_id?)` | Search/read/scroll session transcripts |
+| `list_platforms()` | Connected platforms + owner address |
+| `send_message(address, text)` | Send a message (rate-limited, governed) |
+| `list_schedules()` | List scheduled jobs |
+| `cancel_schedule(name)` | Remove a scheduled job |
+| `list_skills(category?)` | List installed skills |
+| `load_skill(name)` | Load a skill's full body |
+| `list_contacts(query?)` | List/search contacts |
+
+Owner-trusted by default: the server assumes the operator is the owner (it runs
+on the owner's box). For shared deployments, set `OPENPUP_MCP_RESTRICT=true`
+to hide privileged tools (`send_message`, `list_contacts`) from the schema.
     menus.py           # the config menu tree
 ```
 

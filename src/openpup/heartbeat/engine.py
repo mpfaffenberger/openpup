@@ -137,6 +137,11 @@ class Heartbeat:
         if "curator" in behaviors:
             # Opt-in, and internally interval-gated to ~weekly runs.
             await self._safe(curator.maybe_curate(self.host, self.settings), "curator")
+        if "briefings" in behaviors:
+            # Opt-in RSS / Atom digest delivery.
+            from openpup.heartbeat import briefings
+
+            await self._safe(briefings.briefings(self.host, self.settings, self.registry), "briefings")
 
     async def _poll_inbound(self) -> None:
         """Tick poll-based chat adapters (e.g. iMessage) so they fetch new

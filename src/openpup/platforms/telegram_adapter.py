@@ -12,6 +12,29 @@ from openpup.platforms.base import PlatformAdapter
 logger = logging.getLogger("openpup.telegram")
 
 
+def _chat_type(update) -> str:
+    """Return 'group' for groups/channels, 'dm' otherwise (default)."""
+    chat = getattr(update, "effective_chat", None)
+    if chat is None:
+        return "dm"
+    ct = (getattr(chat, "type", None) or "").lower()
+    if ct in ("group", "supergroup", "channel"):
+        return "group"
+    return "dm"
+
+
+def _mentions(msg) -> list[str]:
+    """Extract user IDs from text_mention entities + mentions (text_mention only)."""
+    out: list[str] = []
+    for ent in (getattr(msg, "entities", None) or []):
+        t = getattr(ent, "type", None)
+        if t == "text_mention":
+            user = getattr(ent, "user", None)
+            if user is not None and getattr(user, "id", None) is not None:
+                out.append(str(user.id))
+    return out
+
+
 class TelegramAdapter(PlatformAdapter):
     name = "telegram"
 
@@ -48,6 +71,8 @@ class TelegramAdapter(PlatformAdapter):
             sender=name,
             sender_id=sender_id,
             text=msg.text,
+            chat_type=_chat_type(update),
+            mentions=_mentions(msg),
         )
         await self.registry.dispatch_inbound(envelope)
 
