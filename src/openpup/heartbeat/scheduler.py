@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -25,6 +27,38 @@ from pathlib import Path
 from typing import List, Optional
 
 logger = logging.getLogger("openpup.scheduler")
+
+
+def _atomic_write_text(path: Path, data: str) -> None:
+    """Write text to ``path`` atomically (temp + fsync + os.replace).
+
+    A crash (Ctrl-C, OOM, power loss) mid-write leaves the temp file, not
+    the live target, so the next load never sees a truncated/corrupt
+    state. The pattern is the same one tarfile / SQLite WAL use.
+    """
+    path = Path(path)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent) if path.parent else None,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(data)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                # Some filesystems (notably some FUSE / SSH-FS mounts) reject
+                # fsync; the rename still gives us crash-safety on most fs.
+                logger.debug("fsync failed for %s", path, exc_info=True)
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def _human_delta(seconds: float) -> str:
@@ -152,7 +186,11 @@ class Scheduler:
     def save(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps([asdict(r) for r in self.routines], indent=2))
+            data = json.dumps([asdict(r) for r in self.routines], indent=2)
+            # Atomic write: temp file + fsync + os.replace. A crash mid-write
+            # leaves the temp file, not the live routines.json, so the next
+            # load never sees a truncated/corrupt state.
+            _atomic_write_text(self.path, data)
         except Exception:
             logger.exception("Failed to save routines")
 
