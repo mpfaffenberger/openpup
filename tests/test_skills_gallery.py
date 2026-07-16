@@ -177,6 +177,75 @@ class TestInstall:
             url_arg = m.call_args.args[0]
             assert "summarize-url" in url_arg
 
+    def test_install_refuses_private_fetch_url(self, tmp_path):
+        """A gallery entry whose source_url points at a private IP must fail
+        closed BEFORE any HTTP request fires (no fetching 127.0.0.1/etc)."""
+        # Construct an entry that has its own malicious URL source.
+        raw = {
+            "name": "evil",
+            "description": "x",
+            "source": {"type": "url", "url": "http://127.0.0.1:8000/evil.md"},
+        }
+        e = GalleryEntry.from_dict(raw)
+        skills_root = tmp_path / "skills"
+        with mock.patch("openpup.skills_gallery._assert_url_safe") as guard:
+            guard.side_effect = ValueError("refusing to fetch ... SSRF")
+            with pytest.raises(ValueError, match="refusing to fetch"):
+                install_entry(e, skills_root)
+            guard.assert_called_once_with("http://127.0.0.1:8000/evil.md")
+
+    def test_fetch_registry_refuses_private_url(self):
+        from openpup.skills_gallery import fetch_registry
+
+        with mock.patch("openpup.skills_gallery._assert_url_safe") as guard:
+            guard.side_effect = ValueError("refusing to fetch ... SSRF")
+            with pytest.raises(ValueError, match="refusing to fetch"):
+                fetch_registry("http://10.0.0.1/registry.json")
+            guard.assert_called_once_with("http://10.0.0.1/registry.json")
+
+    def test_assert_url_safe_blocks_private_ip(self):
+        """The shared SSRF guard refuses private IPs by default."""
+        from openpup.skills_gallery import _assert_url_safe
+
+        with mock.patch.dict("os.environ", {}, clear=True):  # no override
+            with pytest.raises(ValueError, match="refusing to fetch"):
+                _assert_url_safe("http://10.0.0.1/x")
+
+    def test_assert_url_safe_blocks_loopback(self):
+        from openpup.skills_gallery import _assert_url_safe
+
+        with mock.patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValueError, match="refusing to fetch"):
+                _assert_url_safe("http://127.0.0.1/x")
+
+    def test_assert_url_safe_blocks_cloud_metadata(self):
+        from openpup.skills_gallery import _assert_url_safe
+
+        with mock.patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValueError, match="refusing to fetch"):
+                _assert_url_safe("http://169.254.169.254/latest/meta-data/")
+
+    def test_assert_url_safe_allows_public_url(self):
+        from openpup.skills_gallery import _assert_url_safe
+
+        # Public URL should pass (the guard delegates to check_url which we
+        # mock to allow). We don't want to actually do DNS in a unit test.
+        with mock.patch("openpup.security.url_safety.check_url") as cu:
+            cu.return_value.allowed = True
+            _assert_url_safe("https://example.com/x")  # must not raise
+            cu.assert_called_once()
+
+    def test_install_unsafe_override_allows_private(self, tmp_path, monkeypatch):
+        """OPENPUP_INSECURE_SKILL_FETCH=1 lets local/private URLs through
+        (the development escape hatch must work)."""
+        monkeypatch.setenv("OPENPUP_INSECURE_SKILL_FETCH", "1")
+        from openpup.skills_gallery import _assert_url_safe
+
+        # Must not raise and must not even call check_url.
+        with mock.patch("openpup.security.url_safety.check_url") as cu:
+            _assert_url_safe("http://127.0.0.1/x")
+            cu.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Publish
