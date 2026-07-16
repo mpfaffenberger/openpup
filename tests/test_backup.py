@@ -135,6 +135,20 @@ class TestTar:
         with pytest.raises(ValueError, match="unsafe path"):
             extract_tar(buf.getvalue(), tmp_path)
 
+    def test_extract_tar_refuses_symlink_member(self, tmp_path):
+        """A symlink member could escape the target dir; extract must refuse
+        even on Python 3.11 (where ``filter='data'`` isn't available)."""
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+            info = tarfile.TarInfo(name="pwn")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "/etc/passwd"
+            tf.addfile(info)
+        with pytest.raises(ValueError, match="unsafe member type"):
+            extract_tar(buf.getvalue(), tmp_path)
+        # And: nothing extracted.
+        assert not (tmp_path / "pwn").exists()
+
     def test_make_tar_missing_source_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
             make_tar(tmp_path / "nope")
