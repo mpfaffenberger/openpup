@@ -235,6 +235,16 @@ class LocalTarget:
     def write(self, name: str, data: bytes) -> str:
         path = self._path(name)
         path.write_bytes(data)
+        # Encrypted backups contain the full state directory (~/.openpup/):
+        # kennel memory, contacts, platform credentials, etc. Default umask
+        # leaves them 0o644 on most systems (world-readable). Best-effort
+        # chmod 0o600 so the bytes never leak off-box before any remote
+        # upload. Failure here is non-fatal (chmod may not be supported on
+        # every filesystem); the write already succeeded.
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            logger.debug("could not chmod backup file %s", path, exc_info=True)
         return str(path)
 
     def read(self, name: str) -> bytes:

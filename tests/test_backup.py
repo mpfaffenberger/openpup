@@ -165,6 +165,14 @@ class TestLocalTarget:
         LocalTarget(directory=nested)
         assert nested.is_dir()
 
+    def test_write_chmods_file_owner_only(self, tmp_path):
+        """Encrypted backups carry the full state dir: chmod 0o600 after write
+        so the file never reads world-accessible before any remote upload."""
+        t = LocalTarget(directory=tmp_path)
+        path = Path(t.write("foo.bin", b"hello"))
+        mode = path.stat().st_mode & 0o777
+        assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
+
 
 # ---------------------------------------------------------------------------
 # End-to-end
