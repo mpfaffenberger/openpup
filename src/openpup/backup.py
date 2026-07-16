@@ -177,13 +177,29 @@ def extract_tar(blob: bytes, target: Path) -> None:
     target.mkdir(parents=True, exist_ok=True)
     buf = io.BytesIO(blob)
     with tarfile.open(fileobj=buf, mode="r:gz") as tar:
-        # Safe extraction: refuse path traversal and absolute paths.
+        # Safe extraction:
+        #   - refuse path traversal and absolute paths (always);
+        #   - refuse symlink / device / fifo members, regardless of Python
+        #     version, because their extraction can write outside the target
+        #     or run device I/O.
+        # ``filter='data'`` does the member-type filtering on Python 3.12+
+        # but the kwarg doesn't exist on 3.11 (which pyproject.toml still
+        # supports), so guard by member type as well so the protection is
+        # independent of the interpreter version.
         for member in tar.getmembers():
             name = member.name
             if name.startswith("/") or ".." in name.split("/"):
                 raise ValueError(f"refusing unsafe path in archive: {name}")
-        # filter='data' (Python 3.12+) blocks extraction of device/symlink members.
-        tar.extractall(target, filter="data")
+            if member.islnk() or member.issym() or member.ischr() or member.isblk() or member.isfifo() or member.isdev():
+                raise ValueError(
+                    f"refusing unsafe member type ({member.type}) in archive: {name}"
+                )
+        # filter='data' is supported on Python 3.12+ and is a defense in
+        # depth against any new member types future stdlib versions may add.
+        try:
+            tar.extractall(target, filter="data")  # type: ignore[call-arg]
+        except TypeError:
+            tar.extractall(target)
 
 
 def read_version(blob: bytes) -> dict:
