@@ -3,7 +3,6 @@
 import pytest
 
 from openpup.memory_consolidation import (
-    DEFAULT_THRESHOLD,
     find_candidates,
     is_exact_duplicate,
 )

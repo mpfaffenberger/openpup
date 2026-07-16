@@ -4,20 +4,14 @@ Covers the per-platform GroupPolicy dataclass, the JSON store round-trip,
 and the should_reply() decision logic across modes / mentions / keywords.
 """
 
-import json
-from pathlib import Path
 
-import pytest
 
 from openpup.group_policy import (
-    GroupDecision,
     GroupPolicy,
     GroupPolicyStore,
-    MODES,
     MODE_OPEN,
     MODE_SILENT,
     MODE_SMART,
-    get_store,
     should_reply,
 )
 from openpup.messaging.envelope import Envelope

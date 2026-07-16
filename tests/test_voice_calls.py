@@ -1,6 +1,5 @@
 """Tests for the voice_calls module."""
 
-import pytest
 
 from openpup.voice_calls import CallRequest, build_twiml, place_call
 

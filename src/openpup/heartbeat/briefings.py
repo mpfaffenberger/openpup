@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -32,8 +32,6 @@ from openpup.config import Settings
 from openpup.messaging.envelope import Envelope
 from openpup.messaging.registry import PlatformRegistry
 from openpup.governance import get_send_policy
-from openpup.access import OWNER
-from openpup import access
 
 logger = logging.getLogger("openpup.briefings")
 

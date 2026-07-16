@@ -14,7 +14,6 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger("openpup.voice_calls")
 

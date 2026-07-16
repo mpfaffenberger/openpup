@@ -4,14 +4,10 @@ Covers feed parsing (RSS + Atom), config/state helpers, quiet-hours guard,
 digest rendering, and the end-to-end delivery flow with a mocked adapter.
 """
 
-import asyncio
 import json
-from pathlib import Path
-from unittest import mock
 
 import pytest
 
-from openpup import governance
 from openpup.heartbeat import briefings
 from openpup.heartbeat.briefings import (
     FeedItem,
@@ -136,7 +132,8 @@ class TestQuietHours:
 
         s = Settings(_env_file=None, OPENPUP_QUIET_HOURS="22-7")
         # Force UTC for stable math.
-        import os, time
+        import os
+        import time
 
         old_tz = os.environ.get("TZ")
         os.environ["TZ"] = "UTC"

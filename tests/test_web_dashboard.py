@@ -4,9 +4,6 @@ Covers token management, app construction, HTML rendering, and JSON API
 endpoints. Uses FastAPI's TestClient (no live HTTP server).
 """
 
-import time
-from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -15,7 +12,6 @@ from openpup.web_dashboard import (
     HAS_FASTAPI,
     create_app,
     get_or_create_token,
-    require_token,
 )
 
 

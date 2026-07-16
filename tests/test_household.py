@@ -16,8 +16,6 @@ from openpup.household import (
     describe_household,
     household_mode_enabled,
     policy_for,
-    recall_for_user,
-    remember_for_user,
     user_wing,
 )
 

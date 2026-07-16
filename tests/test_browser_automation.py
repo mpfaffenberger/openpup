@@ -2,9 +2,8 @@
 
 import asyncio
 
-import pytest
 
-from openpup.browser_automation import BrowserAction, BrowserResult, run
+from openpup.browser_automation import BrowserAction, run
 
 
 class TestDispatch:

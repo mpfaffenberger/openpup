@@ -1,8 +1,6 @@
 """Tests for the vision module."""
 
-import pytest
 
-from openpup import vision
 from openpup.vision import DEFAULT_PROMPT, describe, is_available
 
 

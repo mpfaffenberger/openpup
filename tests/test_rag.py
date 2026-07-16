@@ -5,9 +5,7 @@ Covers chunking, FTS escaping, indexing, and search round-trip.
 
 from pathlib import Path
 
-import pytest
 
-from openpup import rag
 from openpup.rag import Chunk, RAGStore, _chunk_text, _fts_escape, _last_words
 
 

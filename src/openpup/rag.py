@@ -20,13 +20,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import re
 import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 logger = logging.getLogger("openpup.rag")
 
@@ -179,7 +178,7 @@ def _chunk_text(text: str, source: Path, *, chunk_size: int = DEFAULT_CHUNK_SIZE
             keep = _last_words(current_chunk, overlap)
             current_chunk = list(keep)
             current_start = i - len(keep)
-            current_len = sum(len(l) + 1 for l in current_chunk)
+            current_len = sum(len(line) + 1 for line in current_chunk)
         current_chunk.append(line)
         current_len += len(line) + 1
     if current_chunk:

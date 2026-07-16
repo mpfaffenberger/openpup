@@ -15,7 +15,7 @@ import asyncio
 import logging
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Sequence
 
 logger = logging.getLogger("openpup.subagents")
@@ -58,7 +58,6 @@ async def fan_out(
     a semaphore. Failures in one task don't cancel the others.
     """
     sem = asyncio.Semaphore(concurrency)
-    started_at = time.time()
 
     async def _one(prompt: str) -> SubAgentResult:
         task_id = uuid.uuid4().hex[:8]

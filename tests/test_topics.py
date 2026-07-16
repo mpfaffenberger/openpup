@@ -1,16 +1,12 @@
 """Tests for the topics (pub/sub) module."""
 
-from pathlib import Path
 
-import pytest
 
 from openpup.topics import (
     TopicBus,
     TopicEvent,
     TopicStore,
     TopicSubscription,
-    get_bus,
-    get_store,
 )
 
 

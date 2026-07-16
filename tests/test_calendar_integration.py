@@ -6,7 +6,6 @@ selector logic.
 
 import pytest
 
-from openpup import calendar_integration as calmod
 from openpup.calendar_integration import (
     CalendarEvent,
     StubBackend,

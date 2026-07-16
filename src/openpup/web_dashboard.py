@@ -198,7 +198,7 @@ def create_app() -> "FastAPI":
     _require_fastapi()
 
     from fastapi import FastAPI
-    from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+    from fastapi.responses import HTMLResponse, JSONResponse
 
     app = FastAPI(title="OpenPup Dashboard", docs_url=None, redoc_url=None)
 
@@ -316,7 +316,6 @@ def create_app() -> "FastAPI":
     @app.get("/api/heartbeat")
     def api_heartbeat(request: Request, token: Optional[str] = None) -> JSONResponse:
         require_token(request, token=token)
-        from openpup.heartbeat.engine import Heartbeat  # type: ignore
         from openpup.config import get_settings
         from openpup.messaging.registry import PlatformRegistry
 

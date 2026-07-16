@@ -12,12 +12,9 @@ agent gracefully falls back to text-only replies.
 """
 from __future__ import annotations
 
-import io
 import logging
-import os
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("openpup.voice")
 

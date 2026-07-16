@@ -2,9 +2,8 @@
 
 import time
 
-import pytest
 
-from openpup.cost import CostStore, estimate_cost, get_store
+from openpup.cost import CostStore, estimate_cost
 
 
 class TestEstimateCost:

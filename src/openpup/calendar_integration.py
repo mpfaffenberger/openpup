@@ -24,8 +24,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 logger = logging.getLogger("openpup.calendar")
 
@@ -229,7 +228,7 @@ class CalDAVBackend(CalendarBackend):
         return None
 
     def create_event(self, calendar, summary, start, end, location="", description=""):
-        from icalendar import Calendar as iCal, Event
+        from icalendar import Event
 
         cal = self._calendar(calendar)
         ev = Event()

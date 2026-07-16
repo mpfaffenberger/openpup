@@ -2,7 +2,6 @@
 
 import asyncio
 
-import pytest
 
 from openpup.subagents import SubAgentResult, _echo_runner, fan_out
 

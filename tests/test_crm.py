@@ -1,12 +1,9 @@
 """Tests for the personal CRM module."""
 
-import json
 from datetime import date, timedelta
-from pathlib import Path
 
-import pytest
 
-from openpup.crm import CRMStore, Person, followups, get_store
+from openpup.crm import CRMStore, Person, followups
 
 
 class TestPersonDataclass:

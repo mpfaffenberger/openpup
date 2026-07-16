@@ -1,11 +1,8 @@
 """Tests for the github_monitor module."""
 
-from pathlib import Path
 
-import pytest
 
-from openpup import github_monitor
-from openpup.github_monitor import RepoWatch, WatchStore, fetch_recent_issues, get_store
+from openpup.github_monitor import RepoWatch, WatchStore
 
 
 class TestRepoWatch:
