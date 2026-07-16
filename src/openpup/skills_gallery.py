@@ -142,10 +142,18 @@ def default_registry_url() -> str:
 
 
 def fetch_registry(url: Optional[str] = None) -> Registry:
-    """Download and parse the registry JSON. Raises on network/parse errors."""
+    """Download and parse the registry JSON. Raises on network/parse errors.
+
+    Pre-flights every URL through :func:`security.url_safety.check_url` so a
+    malicious or hijacked registry URL can't pivot OpenPup into fetching
+    private/loopback/cloud-metadata addresses. Set ``OPENPUP_INSECURE_SKILL_FETCH=1``
+    to bypass the guard for local development (the default guard refuses
+    private addresses to stay fail-safe).
+    """
     import urllib.request
 
     target = url or default_registry_url()
+    _assert_url_safe(target)
     with urllib.request.urlopen(target, timeout=15) as resp:  # noqa: S310 - admin-only
         return Registry.parse(resp.read())
 
@@ -206,6 +214,7 @@ def install_entry(
 def _fetch(url: str) -> str:
     import urllib.request
 
+    _assert_url_safe(url)
     with urllib.request.urlopen(url, timeout=15) as resp:  # noqa: S310 - admin-only
         return resp.read().decode("utf-8")
 
@@ -318,4 +327,30 @@ def validate_skill_name(name: str) -> None:
         raise ValueError(
             f"invalid skill name {name!r}: must be lowercase, 1-63 chars, "
             "start with letter/digit, contain only [a-z0-9._-]"
+        )
+
+
+# -----------------------------------------------------------------------
+# SSRF guard for outbound registry fetches
+# -----------------------------------------------------------------------
+def _assert_url_safe(url: str) -> None:
+    """Pre-flight an outbound URL through ``security.url_safety.check_url``.
+
+    Treats a refused URL as fatal: a registry that points at a private IP or
+    cloud-metadata endpoint is a misconfiguration or an attack, never a
+    legitimate install target. ``OPENPUP_INSECURE_SKILL_FETCH=1`` disables the
+    guard for local development against a registry served from a private IP.
+    """
+    import os
+
+    if os.environ.get("OPENPUP_INSECURE_SKILL_FETCH", "").strip() in {"1", "true", "yes", "on"}:
+        return
+    from openpup.security.url_safety import check_url
+
+    verdict = check_url(url)
+    if not verdict.allowed:
+        raise ValueError(
+            f"refusing to fetch {url!r}: {verdict.reason}. "
+            "Set OPENPUP_INSECURE_SKILL_FETCH=1 to allow private/loopback URLs "
+            "(development only)."
         )

@@ -745,6 +745,20 @@ def _load_registry(registry: Optional[str]):
 def _http_get(url: str) -> str:
     import urllib.request
 
+    import os
+
+    # SSRF guard (matches skills_gallery): private/loopback/metadata URLs are
+    # refused unless OPENPUP_INSECURE_SKILL_FETCH=1 (development escape hatch).
+    if os.environ.get("OPENPUP_INSECURE_SKILL_FETCH", "").strip() not in {"1", "true", "yes", "on"}:
+        from openpup.security.url_safety import check_url
+
+        verdict = check_url(url)
+        if not verdict.allowed:
+            raise SystemExit(
+                f"refusing to fetch {url!r}: {verdict.reason}. "
+                "Set OPENPUP_INSECURE_SKILL_FETCH=1 to allow private/loopback URLs "
+                "(development only)."
+            )
     with urllib.request.urlopen(url, timeout=15) as resp:  # noqa: S310
         return resp.read().decode("utf-8")
 
