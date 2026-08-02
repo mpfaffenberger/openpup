@@ -128,7 +128,11 @@ class OpenPup:
         # Build the prompt BEFORE recording this turn: the context prefix may
         # rehydrate recent transcript turns (after a restart), and we don't want
         # it echoing back the very message we're about to answer.
-        prompt = self._context_prefix(envelope, role) + envelope.text
+        prompt = (
+            self._context_prefix(envelope, role)
+            + envelope.text
+            + self._attachment_context(envelope)
+        )
         transcripts.record_turn(session_id, envelope.address, "user", envelope.text)
         # Show a "typing..." indicator (where the platform supports it) for the
         # whole run, so slow turns -- including transient LLM-streaming retries
@@ -157,6 +161,27 @@ class OpenPup:
             envelope.address,
             f"{who}: {envelope.text}\n-> {reply}",
             name=envelope.sender,
+        )
+
+    @staticmethod
+    def _attachment_context(envelope: Envelope) -> str:
+        """Describe user-provided local attachments to the agent."""
+        image_paths = []
+        for attachment in envelope.attachments:
+            path = attachment.get("path")
+            mime_type = str(attachment.get("mime_type", ""))
+            if isinstance(path, str) and mime_type.startswith("image/"):
+                image_paths.append(path)
+        if not image_paths:
+            return ""
+
+        paths = "\n".join(f"- {path}" for path in image_paths)
+        return (
+            "\n\n## Images attached by the user\n"
+            "The user included the following image file(s) with this message. "
+            "Call `load_image_for_analysis` for each path before answering, then "
+            "respond based on what you actually see:\n"
+            f"{paths}"
         )
 
     # ---- typing indicator ------------------------------------------------

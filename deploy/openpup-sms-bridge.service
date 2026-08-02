@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenPup ModemManager HTTP bridge (SMS + MMS spool)
+After=network-online.target openpup-mmsd.service
+Wants=network-online.target openpup-mmsd.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/code/openpup
+ExecStart=/usr/bin/python3 %h/code/openpup/sms_bridge.py --port 9081
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

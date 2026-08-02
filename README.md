@@ -336,7 +336,73 @@ Tuning knobs (see `.env.example`): `OPENPUP_HEARTBEAT_INTERVAL`,
   via a watermark). Ask it to *"check my email every 30m and tell me about new
   ones on topic X"* and it schedules a recurring job that notifies you on your
   normal channel. SMTP out still works when you explicitly ask it to send.
-- **SMS** - Twilio; inbound via the webhook server's `/webhook/sms` route.
+- **SMS** - Twilio by default; inbound via the webhook server's `/webhook/sms`
+  route. Linux can instead use a local ModemManager bridge (below).
+
+### Direct modem SMS + MMS (Linux)
+
+The `modem` SMS backend keeps hardware access on the host and lets a rootless
+OpenPup container communicate over a localhost-only HTTP bridge:
+
+```text
+SIM modem -> ModemManager -> sms_bridge.py -> OpenPup container
+                  |
+                  +-> mmsd-tng -> validated attachment spool -> vision tool
+```
+
+This avoids passing serial devices or the system D-Bus socket into the
+container. Configure OpenPup with:
+
+```dotenv
+SMS_ENABLED=true
+MMS_ENABLED=true
+SMS_BACKEND=modem
+MODEM_BRIDGE_URL=http://127.0.0.1:9081
+MODEM_SMS_MAX_CHARS=1500
+```
+
+Build the pinned, tested `mmsd-tng` binary in a disposable Fedora builder and
+install it under `~/.local/libexec/openpup`:
+
+```bash
+./scripts/build_mmsd_tng.sh
+install -m 644 deploy/openpup-mmsd.service ~/.config/systemd/user/
+install -m 644 deploy/openpup-sms-bridge.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now openpup-mmsd.service openpup-sms-bridge.service
+```
+
+`mmsd-tng` stores carrier settings and raw messages under
+`~/.openpup-mms/.mms/modemmanager`. It requires an active NetworkManager
+cellular profile whose APN matches `MMS_APN`. For T-Mobile US, current provider
+settings are:
+
+```ini
+CarrierMMSC=http://mms.msg.eng.t-mobile.com/mms/wapenc
+MMS_APN=fast.t-mobile.com
+CarrierMMSProxy=NULL
+DefaultModemNumber=NULL
+AutoProcessOnConnection=true
+AutoProcessSMSWAP=true
+```
+
+Some T-Mobile SIM profiles permit only an IPv6 PDP context. A high route metric
+keeps normal traffic on Wi-Fi while allowing MMS sockets bound to `wwan0`:
+
+```bash
+sudo nmcli connection add type gsm ifname cdc-wdm0 \
+  con-name openpup-mms apn fast.t-mobile.com
+sudo nmcli connection modify openpup-mms \
+  connection.autoconnect yes connection.autoconnect-priority -100 \
+  ipv4.method disabled ipv6.method auto ipv6.route-metric 700
+sudo nmcli connection up openpup-mms
+```
+
+The host bridge exposes `/mms/health`, `/mms/inbox`, and `/mms/ack`. It accepts
+only bounded JPEG, PNG, GIF, and WebP parts whose magic bytes match their MIME
+type, extracts them by validated offset into
+`~/.openpup-container/mms-incoming`, and gives the container read-only paths.
+OpenPup then calls Code Puppy's `load_image_for_analysis` tool before replying.
 
 ### Stealth browser (`openpup_browse`)
 
@@ -508,7 +574,7 @@ openpup voice speak "Good morning Mike" --out morning.wav
 
 Both backends are optional — `openpup.voice.is_available()` tells you whether
 local transcription / TTS is installed. Platforms that don't support audio
-attachments (email, SMS) just fall back to text replies.
+attachments (email and plain SMS) just fall back to text replies.
 
 ## Calendar integration
 
