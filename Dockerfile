@@ -13,7 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-RUN pip install ".[all]"
+# Keep the published image feature-complete by default. Narrow deployments can
+# override this (for example: --build-arg OPENPUP_INSTALL_SPEC=.) instead of
+# downloading browser, voice, and every chat platform dependency.
+ARG OPENPUP_INSTALL_SPEC=".[all]"
+RUN pip install "$OPENPUP_INSTALL_SPEC"
 
 # OpenPup state (kennel, routines, counters) lives here; mount a volume.
 ENV PUPPY_KENNEL_ROOT=/data/kennel
@@ -22,5 +26,8 @@ VOLUME ["/data"]
 # Webhook server port (WhatsApp/SMS inbound)
 EXPOSE 8080
 
-ENTRYPOINT ["openpup"]
-CMD ["run"]
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["openpup", "run"]

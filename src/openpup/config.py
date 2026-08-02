@@ -203,9 +203,19 @@ class Settings(BaseSettings):
 
     # ---- SMS -------------------------------------------------------------
     sms_enabled: bool = Field(False, alias="SMS_ENABLED")
+    mms_enabled: bool = Field(False, alias="MMS_ENABLED")
+    # Twilio (cloud API)
     twilio_account_sid: Optional[str] = Field(None, alias="TWILIO_ACCOUNT_SID")
     twilio_auth_token: Optional[str] = Field(None, alias="TWILIO_AUTH_TOKEN")
     twilio_from_number: Optional[str] = Field(None, alias="TWILIO_FROM_NUMBER")
+    # Direct USB modem through the host ModemManager bridge.
+    sms_backend: str = Field("twilio", alias="SMS_BACKEND")
+    modem_bridge_url: Optional[str] = Field(
+        "http://127.0.0.1:9081", alias="MODEM_BRIDGE_URL"
+    )
+    modem_sms_max_chars: int = Field(
+        1500, ge=160, le=10000, alias="MODEM_SMS_MAX_CHARS"
+    )
 
     # ---- Derived helpers -------------------------------------------------
     @property

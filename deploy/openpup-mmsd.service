@@ -1,0 +1,15 @@
+[Unit]
+Description=OpenPup MMS receiver (mmsd-tng)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=HOME=%h/.openpup-mms
+ExecStart=%h/.local/libexec/openpup/mmsdtng --debug
+Restart=always
+RestartSec=5
+
+
+[Install]
+WantedBy=default.target

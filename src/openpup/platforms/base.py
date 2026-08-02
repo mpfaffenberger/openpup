@@ -101,6 +101,12 @@ def _build_email(settings: Settings, registry: PlatformRegistry) -> PlatformAdap
 
 
 def _build_sms(settings: Settings, registry: PlatformRegistry) -> PlatformAdapter:
+    backend = (settings.sms_backend or "twilio").lower().strip()
+    if backend == "modem":
+        from openpup.platforms.modem_sms_adapter import ModemSMSAdapter
+
+        return ModemSMSAdapter(settings, registry)
+    # Default: Twilio
     from openpup.platforms.sms_adapter import SMSAdapter
 
     return SMSAdapter(settings, registry)
