@@ -43,7 +43,18 @@ def test_poll_extracts_image_and_text_then_acknowledges(tmp_path: Path) -> None:
     raw = storage / "raw-pdu"
     raw.write_bytes(prefix + text + image)
     payload = _payload(raw, len(prefix), len(prefix) + len(text), image)
-    inbox = mms_bridge.MMSInbox(storage, spool, "/data/mms-incoming")
+    deleted = []
+
+    def delete_message(message_id: str) -> bool:
+        deleted.append(message_id)
+        return True
+
+    inbox = mms_bridge.MMSInbox(
+        storage,
+        spool,
+        "/data/mms-incoming",
+        delete_message=delete_message,
+    )
 
     messages = inbox.poll(payload)
 
@@ -63,6 +74,7 @@ def test_poll_extracts_image_and_text_then_acknowledges(tmp_path: Path) -> None:
     extracted = spool / "message_123" / "image-02.png"
     assert extracted.read_bytes() == image
     assert inbox.acknowledge("message_123") is True
+    assert deleted == ["message_123"]
     assert inbox.poll(payload) == []
 
 
