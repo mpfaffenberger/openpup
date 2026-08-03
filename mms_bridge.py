@@ -8,7 +8,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger("mms_bridge")
 
@@ -49,6 +49,33 @@ def _run_busctl_payload() -> dict[str, Any]:
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "mmsd-tng D-Bus call failed")
     return json.loads(result.stdout)
+
+
+def _delete_mmsd_message(message_id: str) -> bool:
+    """Delete a received message from mmsd after OpenPup has processed it."""
+    object_path = f"{MMS_SERVICE_PATH}/{message_id}"
+    result = subprocess.run(
+        [
+            BUSCTL,
+            "--user",
+            "call",
+            MMS_BUS,
+            object_path,
+            "org.ofono.mms.Message",
+            "Delete",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    if result.returncode == 0:
+        return True
+    logger.warning(
+        "Could not delete acknowledged MMS %s from mmsd: %s",
+        message_id,
+        result.stderr.strip(),
+    )
+    return False
 
 
 def _unwrap(value: Any) -> Any:
@@ -110,12 +137,14 @@ class MMSInbox:
         storage_root: str | Path | None = None,
         spool_root: str | Path | None = None,
         container_root: str | Path = DEFAULT_CONTAINER_ROOT,
+        delete_message: Callable[[str], bool] = _delete_mmsd_message,
     ) -> None:
         storage = storage_root or os.environ.get("OPENPUP_MMS_STORAGE", DEFAULT_STORAGE_ROOT)
         spool = spool_root or os.environ.get("OPENPUP_MMS_SPOOL", DEFAULT_SPOOL_ROOT)
         self.storage_root = Path(storage).expanduser().resolve()
         self.spool_root = Path(spool).expanduser().resolve()
         self.container_root = Path(container_root)
+        self._delete_message = delete_message
         self.spool_root.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     def health(self) -> dict[str, Any]:
@@ -152,6 +181,7 @@ class MMSInbox:
             return False
         marker = message_dir / ".acknowledged"
         marker.write_text("ok\n", encoding="utf-8")
+        self._delete_message(message_id)
         return True
 
     def _extract_message(
