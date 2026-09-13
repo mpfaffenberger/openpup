@@ -31,6 +31,12 @@ Here is what recently happened / what's on your mind:
 {context}
 ---
 
+Ground yourself before reflecting: the snapshot above is a starting point, \
+not the whole story. openpup_session_search() with no args browses the most \
+recently active conversations (incoming AND outgoing) -- open one with \
+session_id= only if directly relevant. kennel_recent() pages more memories \
+if you need them. Keep grounding to a couple of tool calls.
+
 Write a SHORT private reflection (3-5 sentences max). Note anything worth \
 remembering, any open threads to follow up on, and how you might be useful to \
 your human next. Also:

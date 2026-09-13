@@ -153,6 +153,25 @@ async def test_reflect_prompt_includes_learning_loop_nudges(store, monkeypatch):
     assert remembered == [f"[reflection] {text}"]
 
 
+async def test_reflect_prompt_includes_comms_grounding(store, monkeypatch):
+    from openpup.heartbeat import reflect as reflect_mod
+
+    monkeypatch.setattr(memory, "recent", lambda top_k=5: [])
+    host = StubHost(reply="[NOTHING]")
+
+    await reflect_mod.reflect(host, Settings(_env_file=None))
+
+    sent = host.prompts[0]
+    # grounded in recent conversations (same philosophy as the routine
+    # preamble from #58): browse recent comms, page memories on demand
+    assert "Ground yourself before reflecting" in sent
+    assert "openpup_session_search" in sent
+    assert "incoming" in sent.lower() and "outgoing" in sent.lower()
+    assert "kennel_recent" in sent
+    # the baked-in memory snapshot stays as the starting point
+    assert "Here is what recently happened" in sent
+
+
 async def test_routine_prompt_job_records_both_turns(store):
     from openpup.heartbeat import routines as routines_mod
 
