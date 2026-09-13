@@ -100,6 +100,12 @@ class Settings(BaseSettings):
     # Persona presets used to generate SOUL.md (the editable identity).
     personality: str = Field("warm_loyal_sassy", alias="OPENPUP_PERSONALITY")
     proactivity: str = Field("relentless", alias="OPENPUP_PROACTIVITY")
+    # Lean system prompt: compact identity + tool pointers instead of the full
+    # layered prompt (owner profile, memory snapshot, every guidance block).
+    # In lean mode the agent fetches owner facts, memories, and past
+    # conversations on demand via tools. Set OPENPUP_LEAN_PROMPT=false for the
+    # classic full prompt.
+    lean_prompt: bool = Field(True, alias="OPENPUP_LEAN_PROMPT")
 
     # ---- Owner -----------------------------------------------------------
     # Primary owner address (default destination for proactive outreach).
