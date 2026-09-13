@@ -218,6 +218,12 @@ def test_index_block_excludes_archived(store, monkeypatch):
 def test_prompt_includes_skill_index(store, monkeypatch):
     monkeypatch.setattr(store_mod, "_store", store)
     store.create("prompt-skill", "Prompts things. Use inside prompts.")
+    # Lean mode (the default) deliberately omits the skill index; the index
+    # is a full-prompt layer.
+    monkeypatch.setenv("OPENPUP_LEAN_PROMPT", "false")
+    from openpup.config import get_settings
+
+    get_settings.cache_clear()
     from openpup import prompting
 
     prompt = prompting.build_system_prompt()
