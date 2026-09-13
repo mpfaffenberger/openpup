@@ -22,6 +22,35 @@ from openpup.messaging.registry import PlatformRegistry
 
 logger = logging.getLogger("openpup.routines")
 
+# Prepend to every scheduled PROMPT job: job prompts are authored blind (no
+# live human in the conversation), so ground the run in recent memory and
+# recent incoming/outgoing communications before the work begins. Kept
+# deliberately short -- it ships with every job, every day.
+_CONTEXT_PREAMBLE = """\
+# Ground first, then do the job
+Before acting, fetch recent context so you stay consistent with what already
+happened:
+1. kennel_recent() -- page the newest memories.
+2. openpup_session_search() with no args -- browse the most recently active
+   conversations (incoming AND outgoing); open one with session_id= only if
+   directly relevant.
+Use it to judge relevance and to avoid repeating, contradicting, or
+re-surfacing anything already handled. Keep grounding to a couple of tool
+calls, then do the job below.
+
+---
+"""
+
+
+def _grounded_prompt(prompt: str) -> str:
+    """Job prompt with the context-grounding preamble prepended.
+
+    The transcript records the author's prompt verbatim; the preamble is
+    runtime boilerplate (same principle as reflect.py not recording its
+    templated prompt).
+    """
+    return _CONTEXT_PREAMBLE + prompt
+
 
 async def run_due_routines(
     host: AgentHost,
@@ -51,7 +80,7 @@ async def run_due_routines(
                 )
                 output = (
                     await host.run(
-                        job.prompt,
+                        _grounded_prompt(job.prompt),
                         conversation=f"__routine__:{job.name}",
                         keep_history=False,
                     )
